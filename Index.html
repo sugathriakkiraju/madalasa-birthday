@@ -570,6 +570,7 @@
       </div>
       <div class="error-msg" id="formError">Please fill in all required fields ✨</div>
       <button class="submit-btn" id="submitBtn" onclick="submitRsvp()">Send my RSVP 🦄</button>
+      <p style="font-size:0.75rem;color:#CCC;text-align:center;margin-top:10px;">Your response is saved securely ✨</p>
     </div>
 
     <div class="success-msg" id="successMsg">
@@ -625,13 +626,29 @@
 </div>
 
 <script>
-  // ── CONFIG ──────────────────────────────────────────────────────────────────
-  const ADMIN_PASSWORD = "madalasa5"; // Change this to whatever you want!
-  const STORAGE_KEY = "madalasa_birthday_rsvps";
+  // ══════════════════════════════════════════════════════════════════════════════
+  // ★  STEP 1: Paste your Supabase Project URL here
+  //    (looks like: https://xyzxyzxyz.supabase.co)
+  const SUPABASE_URL = "https://yuutfvgvccfgigzpenvi.supabase.co";
+
+  // ★  STEP 2: Paste your Supabase Publishable (anon) key here
+  const SUPABASE_KEY = "Ysb_publishable_otU-vzgkxfl12CpoNEhVNQ_lVy5opcF";
+
+  // ★  STEP 3: Change this to your own admin password
+  const ADMIN_PASSWORD = "madalasa5";
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  const API = `${SUPABASE_URL}/rest/v1/rsvps`;
+  const HEADERS = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_KEY,
+    "Authorization": `Bearer ${SUPABASE_KEY}`
+  };
 
   // ── STATE ────────────────────────────────────────────────────────────────────
   let selectedRsvp = null;
   let adminUnlocked = false;
+  let attendeeCount = 0;
 
   // ── FLOATING STARS ───────────────────────────────────────────────────────────
   const starEmojis = ['⭐','✨','🌟','💫','🦄','🌈','🎀','💖','🎊'];
@@ -647,9 +664,31 @@
     starsContainer.appendChild(star);
   }
 
-  // ── RSVP FORM ────────────────────────────────────────────────────────────────
-  let attendeeCount = 0;
+  // ── SUPABASE HELPERS ─────────────────────────────────────────────────────────
+  async function saveRsvp(data) {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { ...HEADERS, "Prefer": "return=minimal" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
 
+  async function fetchRsvps() {
+    const res = await fetch(`${API}?order=created_at.desc`, { headers: HEADERS });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function deleteAllRsvps() {
+    const res = await fetch(`${API}?id=gte.0`, {
+      method: 'DELETE',
+      headers: HEADERS
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
+
+  // ── RSVP FORM ────────────────────────────────────────────────────────────────
   function selectRsvp(choice) {
     selectedRsvp = choice;
     document.getElementById('btnYes').className = 'radio-btn yes' + (choice === 'yes' ? ' selected-yes' : '');
@@ -678,7 +717,9 @@
           <option value="adult">🧑 Adult</option>
         </select>
       </div>
-      ${list.children.length > 0 ? `<button class="remove-btn" onclick="removeAttendee(${id})" title="Remove">✕</button>` : '<div style="width:36px;flex-shrink:0"></div>'}
+      ${list.children.length > 0
+        ? `<button class="remove-btn" onclick="removeAttendee(${id})" title="Remove">✕</button>`
+        : '<div style="width:36px;flex-shrink:0"></div>'}
     `;
     list.appendChild(row);
   }
@@ -700,11 +741,11 @@
     return attendees;
   }
 
-  function submitRsvp() {
+  async function submitRsvp() {
     const parentName = document.getElementById('parentName').value.trim();
-    const childName = document.getElementById('childName').value.trim();
-    const notes = document.getElementById('notes').value.trim();
-    const errEl = document.getElementById('formError');
+    const childName  = document.getElementById('childName').value.trim();
+    const notes      = document.getElementById('notes').value.trim();
+    const errEl      = document.getElementById('formError');
 
     if (!parentName || !childName || !selectedRsvp) {
       errEl.style.display = 'block';
@@ -720,54 +761,48 @@
     }
 
     errEl.style.display = 'none';
-    const guestCount = attendees.length;
 
-    const rsvp = {
-      id: Date.now(),
-      parentName,
-      childName,
-      coming: selectedRsvp === 'yes',
-      guestCount,
-      attendees,
-      notes,
-      timestamp: new Date().toLocaleString()
-    };
+    // Disable button & show loading state
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending… 🦄';
 
-    // Save to localStorage
-    const existing = getRsvps();
-    existing.push(rsvp);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-
-    // Show success
-    document.getElementById('rsvpForm').style.display = 'none';
-    const successMsg = document.getElementById('successMsg');
-    successMsg.style.display = 'block';
-
-    if (selectedRsvp === 'yes') {
-      document.getElementById('successEmoji').textContent = '🎉🦄🎊';
-      document.getElementById('successTitle').textContent = 'Yay! See you there!';
-      document.getElementById('successText').textContent = `We're so excited to celebrate with ${childName}! See you May 16th at Happy Hollow Zoo 🦄`;
-      launchConfetti();
-    } else {
-      document.getElementById('successEmoji').textContent = '💌';
-      document.getElementById('successTitle').textContent = 'Thanks for letting us know!';
-      document.getElementById('successText').textContent = "We'll miss you, but thanks for RSVPing! 💕";
-    }
-
-    if (adminUnlocked) renderTracker();
-  }
-
-  // ── STORAGE ──────────────────────────────────────────────────────────────────
-  function getRsvps() {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    } catch { return []; }
-  }
+      await saveRsvp({
+        parent_name: parentName,
+        child_name:  childName,
+        coming:      selectedRsvp === 'yes',
+        guest_count: attendees.length,
+        attendees:   JSON.stringify(attendees),
+        notes
+      });
 
-  function clearAllRsvps() {
-    if (confirm('Clear all RSVPs? This cannot be undone.')) {
-      localStorage.removeItem(STORAGE_KEY);
-      renderTracker();
+      // Show success
+      document.getElementById('rsvpForm').style.display = 'none';
+      const successMsg = document.getElementById('successMsg');
+      successMsg.style.display = 'block';
+
+      if (selectedRsvp === 'yes') {
+        document.getElementById('successEmoji').textContent = '🎉🦄🎊';
+        document.getElementById('successTitle').textContent = 'Yay! See you there!';
+        document.getElementById('successText').textContent =
+          `We're so excited to celebrate with ${childName}! See you May 16th at Happy Hollow Zoo 🦄`;
+        launchConfetti();
+      } else {
+        document.getElementById('successEmoji').textContent = '💌';
+        document.getElementById('successTitle').textContent = 'Thanks for letting us know!';
+        document.getElementById('successText').textContent =
+          "We'll miss you, but thanks for RSVPing! 💕";
+      }
+
+      if (adminUnlocked) renderTracker();
+
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Send my RSVP 🦄';
+      errEl.style.display = 'block';
+      errEl.textContent = 'Oops, something went wrong. Please try again!';
+      console.error(err);
     }
   }
 
@@ -791,40 +826,69 @@
     }
   }
 
-  function renderTracker() {
-    const rsvps = getRsvps();
-    const coming = rsvps.filter(r => r.coming);
-    const totalGuests = coming.reduce((s, r) => s + r.guestCount, 0);
+  async function renderTracker() {
+    const listEl = document.getElementById('rsvpList');
+    listEl.innerHTML = '<div class="empty-list">Loading… 🦄</div>';
 
-    document.getElementById('statTotal').textContent = rsvps.length;
+    let rsvps;
+    try {
+      rsvps = await fetchRsvps();
+    } catch (err) {
+      listEl.innerHTML = '<div class="empty-list">Could not load RSVPs. Check your Supabase config.</div>';
+      console.error(err);
+      return;
+    }
+
+    const coming      = rsvps.filter(r => r.coming);
+    const totalGuests = coming.reduce((s, r) => s + (r.guest_count || 0), 0);
+
+    document.getElementById('statTotal').textContent  = rsvps.length;
     document.getElementById('statComing').textContent = coming.length;
     document.getElementById('statGuests').textContent = totalGuests;
 
-    const listEl = document.getElementById('rsvpList');
     if (rsvps.length === 0) {
       listEl.innerHTML = '<div class="empty-list">No RSVPs yet — share the link! 🦄</div>';
       return;
     }
 
-    listEl.innerHTML = [...rsvps].reverse().map(r => `
-      <div class="rsvp-item ${r.coming ? '' : 'not-coming'}">
-        <div>
-          <div class="rsvp-name">${escHtml(r.childName)} <span style="font-weight:400;color:#AAA;font-size:0.82rem">via ${escHtml(r.parentName)}</span></div>
-          <div class="rsvp-meta">
-            ${r.coming
-              ? (r.attendees && r.attendees.length > 0
-                  ? r.attendees.map(a => `${a.type === 'child' ? '👧' : '🧑'} ${escHtml(a.name)}`).join(' · ')
-                  : `${r.guestCount} guest${r.guestCount !== 1 ? 's' : ''}`)
-              : 'Not coming'
-            }${r.notes ? ' · 📝 ' + escHtml(r.notes) : ''}</div>
-          <div class="rsvp-meta" style="margin-top:2px;opacity:0.6">${r.timestamp}</div>
-        </div>
-        <span class="rsvp-badge ${r.coming ? 'badge-yes' : 'badge-no'}">${r.coming ? `🎉 ${r.guestCount}` : '😢 No'}</span>
-      </div>
-    `).join('');
+    listEl.innerHTML = rsvps.map(r => {
+      let attendees = [];
+      try { attendees = JSON.parse(r.attendees || '[]'); } catch {}
+      const ts = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+      return `
+        <div class="rsvp-item ${r.coming ? '' : 'not-coming'}">
+          <div>
+            <div class="rsvp-name">${escHtml(r.child_name)}
+              <span style="font-weight:400;color:#AAA;font-size:0.82rem"> via ${escHtml(r.parent_name)}</span>
+            </div>
+            <div class="rsvp-meta">
+              ${r.coming
+                ? (attendees.length > 0
+                    ? attendees.map(a => `${a.type === 'child' ? '👧' : '🧑'} ${escHtml(a.name)}`).join(' · ')
+                    : `${r.guest_count} guest${r.guest_count !== 1 ? 's' : ''}`)
+                : 'Not coming'
+              }${r.notes ? ' · 📝 ' + escHtml(r.notes) : ''}
+            </div>
+            <div class="rsvp-meta" style="margin-top:2px;opacity:0.6">${ts}</div>
+          </div>
+          <span class="rsvp-badge ${r.coming ? 'badge-yes' : 'badge-no'}">
+            ${r.coming ? `🎉 ${r.guest_count}` : '😢 No'}
+          </span>
+        </div>`;
+    }).join('');
   }
 
-  function escHtml(str) {
+  async function clearAllRsvps() {
+    if (!confirm('Clear ALL RSVPs from the database? This cannot be undone.')) return;
+    try {
+      await deleteAllRsvps();
+      renderTracker();
+    } catch (err) {
+      alert('Could not clear RSVPs: ' + err.message);
+    }
+  }
+
+  function escHtml(str = '') {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
@@ -837,7 +901,7 @@
         el.className = 'confetti-piece';
         el.style.left = Math.random() * 100 + 'vw';
         el.style.background = colors[Math.floor(Math.random() * colors.length)];
-        el.style.width = (6 + Math.random() * 8) + 'px';
+        el.style.width  = (6 + Math.random() * 8) + 'px';
         el.style.height = (6 + Math.random() * 8) + 'px';
         el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
         el.style.animationDuration = (1.5 + Math.random() * 2) + 's';
