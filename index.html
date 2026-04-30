@@ -545,14 +545,6 @@
 
     <div id="rsvpForm">
       <div class="form-group">
-        <label>Your Full Name (Parent/Guardian)</label>
-        <input type="text" id="parentName" placeholder="e.g. Priya Sharma" />
-      </div>
-      <div class="form-group">
-        <label>Child's Name</label>
-        <input type="text" id="childName" placeholder="e.g. Arya Sharma" />
-      </div>
-      <div class="form-group">
         <label>Can you make it? 🎊</label>
         <div class="radio-group">
           <div class="radio-btn yes" id="btnYes" onclick="selectRsvp('yes')">🎉 Yes, we'll be there!</div>
@@ -563,6 +555,10 @@
         <label>Who's coming? 🎉</label>
         <div id="attendeesList"></div>
         <button type="button" class="add-attendee-btn" onclick="addAttendee()">+ Add another attendee</button>
+      </div>
+      <div class="form-group">
+        <label>Your Phone Number</label>
+        <input type="tel" id="phoneNumber" placeholder="e.g. (408) 555-1234" />
       </div>
       <div class="form-group">
         <label>Any notes for us? (allergies, questions, etc.)</label>
@@ -627,12 +623,12 @@
 
 <script>
   // ══════════════════════════════════════════════════════════════════════════════
-  // ★  STEP 1: Paste your Supabase Project URL here
+ // ★  STEP 1: Paste your Supabase Project URL here
   //    (looks like: https://xyzxyzxyz.supabase.co)
   const SUPABASE_URL = "https://yuutfvgvccfgigzpenvi.supabase.co";
 
   // ★  STEP 2: Paste your Supabase Publishable (anon) key here
-  const SUPABASE_KEY = "sb_publishable_otU-vzgkxfl12CpoNEhVNQ_lVy5opcF";
+  const SUPABASE_KEY = "Ysb_publishable_otU-vzgkxfl12CpoNEhVNQ_lVy5opcF";
 
   // ★  STEP 3: Change this to your own admin password
   const ADMIN_PASSWORD = "madalasa5";
@@ -742,14 +738,13 @@
   }
 
   async function submitRsvp() {
-    const parentName = document.getElementById('parentName').value.trim();
-    const childName  = document.getElementById('childName').value.trim();
+    const phoneNumber = document.getElementById('phoneNumber').value.trim();
     const notes      = document.getElementById('notes').value.trim();
     const errEl      = document.getElementById('formError');
 
-    if (!parentName || !childName || !selectedRsvp) {
+    if (!selectedRsvp) {
       errEl.style.display = 'block';
-      errEl.textContent = 'Please fill in all required fields ✨';
+      errEl.textContent = 'Please let us know if you can make it ✨';
       return;
     }
 
@@ -769,8 +764,7 @@
 
     try {
       await saveRsvp({
-        parent_name: parentName,
-        child_name:  childName,
+        phone_number: phoneNumber,
         coming:      selectedRsvp === 'yes',
         guest_count: attendees.length,
         attendees:   JSON.stringify(attendees),
@@ -786,7 +780,7 @@
         document.getElementById('successEmoji').textContent = '🎉🦄🎊';
         document.getElementById('successTitle').textContent = 'Yay! See you there!';
         document.getElementById('successText').textContent =
-          `We're so excited to celebrate with ${childName}! See you May 16th at Happy Hollow Zoo 🦄`;
+          `We're so excited to celebrate with you! See you May 16th at Happy Hollow Zoo 🦄`;
         launchConfetti();
       } else {
         document.getElementById('successEmoji').textContent = '💌';
@@ -858,9 +852,7 @@
       return `
         <div class="rsvp-item ${r.coming ? '' : 'not-coming'}">
           <div>
-            <div class="rsvp-name">${escHtml(r.child_name)}
-              <span style="font-weight:400;color:#AAA;font-size:0.82rem"> via ${escHtml(r.parent_name)}</span>
-            </div>
+            <div class="rsvp-name">${r.phone_number ? '📱 ' + escHtml(r.phone_number) : 'No phone provided'}</div>
             <div class="rsvp-meta">
               ${r.coming
                 ? (attendees.length > 0
