@@ -222,9 +222,9 @@
   }
   .radio-btn.selected-no {
     background: linear-gradient(135deg, #FFE8F5, #F0E8FF);
-    border-color: var(--purple);
+    border-color: var(--pink);
     color: var(--dark);
-}
+  }
   .submit-btn {
     width: 100%;
     padding: 16px;
@@ -545,7 +545,7 @@
 
     <div id="rsvpForm">
       <div class="form-group">
-        <label>Child's Name</label>
+        <label>Child's Name <span style="color:var(--pink)">*</span></label>
         <input type="text" id="childName" placeholder="e.g. Arya Sharma" />
       </div>
       <div class="form-group">
@@ -556,7 +556,7 @@
         </div>
       </div>
       <div class="form-group" id="guestCountGroup" style="display:none;">
-        <label>Who's coming? 🎉</label>
+        <label>Who's coming? 🎉 <span style="font-weight:400;font-size:0.78rem;color:#AAA">(first attendee pre-filled from child's name)</span></label>
         <div id="attendeesList"></div>
         <button type="button" class="add-attendee-btn" onclick="addAttendee()">+ Add another attendee</button>
       </div>
@@ -629,10 +629,10 @@
   // ══════════════════════════════════════════════════════════════════════════════
   // ★  STEP 1: Paste your Supabase Project URL here
   //    (looks like: https://xyzxyzxyz.supabase.co)
-  const SUPABASE_URL = "https://yuutfvgvccfgigzpenvi.supabase.co";
+  const SUPABASE_URL = "YOUR_SUPABASE_URL";
 
   // ★  STEP 2: Paste your Supabase Publishable (anon) key here
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dXRmdmd2Y2NmZ2lnenBlbnZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTAxOTgsImV4cCI6MjA5MzA4NjE5OH0._x5U0A0l1G5JGaSfOX1fTA0vM9uPFN_lEcobWQaBdRQ";
+  const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";
 
   // ★  STEP 3: Change this to your own admin password
   const ADMIN_PASSWORD = "madalasa5";
@@ -681,7 +681,7 @@
   }
 
   async function deleteAllRsvps() {
-    const res = await fetch(`${API}?id=gte.0`, {
+    const res = await fetch(`${API}?id=gt.0`, {
       method: 'DELETE',
       headers: HEADERS
     });
@@ -696,30 +696,53 @@
     const grp = document.getElementById('guestCountGroup');
     if (choice === 'yes') {
       grp.style.display = 'block';
-      if (document.getElementById('attendeesList').children.length === 0) addAttendee();
+      const list = document.getElementById('attendeesList');
+      if (list.children.length === 0) {
+        addAttendee(true); // first attendee — pre-fill with child's name
+      } else {
+        // update first attendee name if child name field changed
+        const childName = document.getElementById('childName').value.trim();
+        const firstInput = list.querySelector('input[type="text"]');
+        if (firstInput && firstInput.dataset.prefilled === 'true') {
+          firstInput.value = childName;
+        }
+      }
     } else {
       grp.style.display = 'none';
     }
   }
 
-  function addAttendee() {
+  // Also update first attendee live as user types child's name
+  document.getElementById('childName').addEventListener('input', function() {
+    const list = document.getElementById('attendeesList');
+    const firstInput = list.querySelector('input[type="text"]');
+    if (firstInput && firstInput.dataset.prefilled === 'true') {
+      firstInput.value = this.value;
+    }
+  });
+
+  function addAttendee(isFirst = false) {
     attendeeCount++;
     const id = attendeeCount;
     const list = document.getElementById('attendeesList');
+    const childName = document.getElementById('childName').value.trim();
     const row = document.createElement('div');
     row.className = 'attendee-row';
     row.id = 'attendee-' + id;
     row.innerHTML = `
-      <input type="text" placeholder="Attendee name" id="aname-${id}" />
+      <input type="text" placeholder="Attendee name" id="aname-${id}"
+        value="${isFirst ? escHtml(childName) : ''}"
+        ${isFirst ? 'data-prefilled="true"' : ''}
+        ${isFirst ? 'style="background:#F8F0FF;border-color:#D4AAFF;"' : ''} />
       <div class="attendee-tag">
         <select id="atype-${id}">
           <option value="child">👧 Child</option>
           <option value="adult">🧑 Adult</option>
         </select>
       </div>
-      ${list.children.length > 0
-        ? `<button class="remove-btn" onclick="removeAttendee(${id})" title="Remove">✕</button>`
-        : '<div style="width:36px;flex-shrink:0"></div>'}
+      ${isFirst
+        ? '<div style="width:36px;flex-shrink:0"></div>'
+        : `<button class="remove-btn" onclick="removeAttendee(${id})" title="Remove">✕</button>`}
     `;
     list.appendChild(row);
   }
