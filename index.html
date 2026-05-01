@@ -545,6 +545,10 @@
 
     <div id="rsvpForm">
       <div class="form-group">
+        <label>Child's Name</label>
+        <input type="text" id="childName" placeholder="e.g. Arya Sharma" />
+      </div>
+      <div class="form-group">
         <label>Can you make it? 🎊</label>
         <div class="radio-group">
           <div class="radio-btn yes" id="btnYes" onclick="selectRsvp('yes')">🎉 Yes, we'll be there!</div>
@@ -623,12 +627,12 @@
 
 <script>
   // ══════════════════════════════════════════════════════════════════════════════
- // ★  STEP 1: Paste your Supabase Project URL here
+  // ★  STEP 1: Paste your Supabase Project URL here
   //    (looks like: https://xyzxyzxyz.supabase.co)
-  const SUPABASE_URL = "https://yuutfvgvccfgigzpenvi.supabase.co";
+  const SUPABASE_URL = "YOUR_SUPABASE_URL";
 
   // ★  STEP 2: Paste your Supabase Publishable (anon) key here
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dXRmdmd2Y2NmZ2lnenBlbnZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTAxOTgsImV4cCI6MjA5MzA4NjE5OH0._x5U0A0l1G5JGaSfOX1fTA0vM9uPFN_lEcobWQaBdRQ";
+  const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";
 
   // ★  STEP 3: Change this to your own admin password
   const ADMIN_PASSWORD = "madalasa5";
@@ -738,13 +742,20 @@
   }
 
   async function submitRsvp() {
+    const childName   = document.getElementById('childName').value.trim();
     const phoneNumber = document.getElementById('phoneNumber').value.trim();
-    const notes      = document.getElementById('notes').value.trim();
-    const errEl      = document.getElementById('formError');
+    const notes       = document.getElementById('notes').value.trim();
+    const errEl       = document.getElementById('formError');
 
-    if (!selectedRsvp) {
+    if (!childName || !selectedRsvp) {
       errEl.style.display = 'block';
-      errEl.textContent = 'Please let us know if you can make it ✨';
+      errEl.textContent = 'Please fill in your child\'s name and let us know if you can make it ✨';
+      return;
+    }
+
+    if (selectedRsvp === 'yes' && !phoneNumber) {
+      errEl.style.display = 'block';
+      errEl.textContent = 'Please enter your phone number so we can reach you ✨';
       return;
     }
 
@@ -764,6 +775,7 @@
 
     try {
       await saveRsvp({
+        child_name:   childName,
         phone_number: phoneNumber,
         coming:      selectedRsvp === 'yes',
         guest_count: attendees.length,
@@ -780,7 +792,7 @@
         document.getElementById('successEmoji').textContent = '🎉🦄🎊';
         document.getElementById('successTitle').textContent = 'Yay! See you there!';
         document.getElementById('successText').textContent =
-          `We're so excited to celebrate with you! See you May 16th at Happy Hollow Zoo 🦄`;
+          `We're so excited to celebrate with ${childName}! See you May 16th at Happy Hollow Zoo 🦄`;
         launchConfetti();
       } else {
         document.getElementById('successEmoji').textContent = '💌';
@@ -852,7 +864,7 @@
       return `
         <div class="rsvp-item ${r.coming ? '' : 'not-coming'}">
           <div>
-            <div class="rsvp-name">${r.phone_number ? '📱 ' + escHtml(r.phone_number) : 'No phone provided'}</div>
+            <div class="rsvp-name">👧 ${escHtml(r.child_name || 'Unknown')} ${r.phone_number ? '<span style="font-weight:400;color:#AAA;font-size:0.82rem">· 📱 ' + escHtml(r.phone_number) + '</span>' : ''}</div>
             <div class="rsvp-meta">
               ${r.coming
                 ? (attendees.length > 0
